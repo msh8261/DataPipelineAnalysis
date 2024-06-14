@@ -1,0 +1,7 @@
+.pytest_cache
+.env
+images/arch.drawio
+kafka/producer/.env
+spark/consumer/.env
+kafka/producer/data/*
+spark/consumer/jars/*

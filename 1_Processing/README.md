@@ -14,14 +14,14 @@ This project uses producer to generate data from csv files each as one topic and
 3. Scheduling with Airflow
 
 ## Architecture
-![](/images/arch.png)
+![](images/arch.png)
 
 
 ## Get Started
 - make up
 
 ## Topics and Brokers in UI
-![](/images/kafka_ui.png)
+![](images/kafka_ui.png)
 
 
 

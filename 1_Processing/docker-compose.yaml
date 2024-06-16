@@ -4,12 +4,29 @@ networks:
   pipeline_network:
     driver: bridge
     ipam:
+      driver: default
       config:
-        - subnet: 172.18.0.0/16
-          gateway: 172.18.0.1
+          - subnet: "172.18.0.0/16"
+            gateway: 172.18.0.1
 
 
 services:
+  spark:
+    image: docker.io/bitnami/spark:3.3.0
+    container_name: spark_master
+    hostname: spark_master
+    user: root
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - '8080:8080'
+    networks:
+      - pipeline_network
+
   zookeeper:
     platform: linux/amd64
     image: confluentinc/cp-zookeeper:${CONFLUENT_PLATFORM_VERSION:-7.4.0}
@@ -74,6 +91,7 @@ services:
     platform: linux/amd64
     image: confluentinc/cp-kafka:${CONFLUENT_PLATFORM_VERSION:-7.4.0}
     container_name: broker-1
+    hostname: broker-1
     restart: unless-stopped
     ports:
       - '9091:9091'
@@ -106,6 +124,7 @@ services:
     platform: linux/amd64
     image: confluentinc/cp-kafka:${CONFLUENT_PLATFORM_VERSION:-7.4.0}
     container_name: broker-2
+    hostname: broker-2
     restart: unless-stopped
     ports:
       - '9092:9092'
@@ -137,7 +156,8 @@ services:
   broker-3:
     platform: linux/amd64
     image: confluentinc/cp-kafka:${CONFLUENT_PLATFORM_VERSION:-7.4.0}
-    container_name: broker-3
+    container_name: broker-
+    hostname: broker-3
     restart: unless-stopped
     ports:
       - '9093:9093'
@@ -166,6 +186,7 @@ services:
       options:
         max-size: "1m"
 
+
   schema-registry:
     image: confluentinc/cp-schema-registry:7.0.1
     hostname: schema-registry
@@ -190,6 +211,7 @@ services:
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
     networks:
       - pipeline_network
+
 
   rest-proxy:
     image: confluentinc/cp-kafka-rest:7.4.0
@@ -218,6 +240,7 @@ services:
       KAFKA_REST_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'      
     networks:
       - pipeline_network
+
 
   producer:
     platform: linux/amd64
@@ -252,4 +275,110 @@ services:
         max-size: "1m"
 
 
+  cassandra:
+    image: cassandra:4
+    container_name: cassandra
+    hostname: cassandra
+    ports:
+      - '9042:9042'
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    networks:
+      - pipeline_network
 
+
+  cassandra-create-ks-topic:
+    image: cassandra:4
+    container_name: cassandra-create-ks-topic
+    networks:
+      - pipeline_network
+    depends_on:
+      cassandra:
+        condition: service_started
+    restart: "no"
+    entrypoint: ["/cassandra-init.sh"]
+    volumes:
+      - ./cassandra/cassandra-init.sh:/cassandra-init.sh      
+
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    hostname: mysql
+    restart: always
+    ports:
+      - '3306:3306'
+    command: --init-file /data/application/init.sql
+    volumes:
+        - ./mysql/init.sql:/data/application/init.sql
+    environment:
+      MYSQL_ROOT_USER: root
+      MYSQL_ROOT_PASSWORD: passwd
+      # MYSQL_USER: user1
+      # MYSQL_PASSWORD: password
+    networks:
+      - pipeline_network   
+
+  postgres:
+    container_name: postgres
+    build:
+      context: ./pg/
+    hostname: postgres
+    environment:
+        POSTGRES_DB: dvd_rentals_lake_db
+        POSTGRES_USER: user
+        POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    restart: always
+    networks:
+      - pipeline_network   
+
+  consumer:
+    platform: linux/amd64
+    build: 
+     context: ./spark
+     dockerfile: consumer/Dockerfile
+    container_name: consumer
+    restart: always
+    environment:
+      - ACTION=consumer
+      - BOOTSTRAP_SERVERS=broker-1:29091,broker-2:29092,broker-3:29093
+      - PYTHONUNBUFFERED=1
+      - TOPICS=actor,category,film,film_actor,film_category,inventory,rental
+      - delta_table_path='/src/data/delta_table'
+      - SPARK_NO_DAEMONIZE=true
+      - SPARK_WORKER_MEMORY=4G
+      - SPARK_EXECUTOR_MEMORY=4G
+      - SPARK_WORKER_CORES=4
+    command: ["/bin/bash", "-c", "/spark-setup.sh"]  
+    volumes:      
+      - type: bind
+        source: ./spark/consumer/spark-setup.sh
+        target: /spark-setup.sh
+      - ./spark/consumer:/home/
+      - ./spark/consumer:/src
+    networks:
+      - pipeline_network
+    depends_on:
+      broker-1:
+        condition: service_started
+      broker-2:
+        condition: service_started
+      broker-3:
+        condition: service_started
+      producer:
+        condition: service_started
+      cassandra-create-ks-topic:
+        condition: service_completed_successfully
+      mysql:
+        condition: service_started
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+
+
+volumes:
+  my-db:
+  cassandra-data:

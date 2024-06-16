@@ -1,12 +1,13 @@
-FROM bitnami/spark:3.5.0
+FROM bitnami/spark:3.3.0
 
-RUN pip install --no-cache-dir kafka-python numpy python-dotenv delta-spark minio
 
-ENV ACTION consumer
+RUN pip install --no-cache-dir kafka-python numpy python-dotenv minio
 
-ENV BOOTSTRAP_SERVERS "broker-1:29091,broker-2:29092,broker-3:29093"
+# ENV ACTION consumer
 
-ADD . /src
+# ENV BOOTSTRAP_SERVERS "broker-1:29091,broker-2:29092,broker-3:29093"
+
+# ADD . /src
 
 # ADD spark-setup.sh /src/spark-setup.sh
 

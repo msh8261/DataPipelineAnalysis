@@ -1,1 +1,4 @@
-# DataPipelineAnalysis
+# Visualization
+
+## Architecture
+![](images/arch.png)

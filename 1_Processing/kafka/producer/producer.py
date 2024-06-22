@@ -1,9 +1,10 @@
 import csv
+import numpy as np
 import json
 import logging
 import os
 import time
-# import datetime as dt
+import datetime as dt
 # import kafka.errors
 from dotenv import load_dotenv
 from data_generator import generate_data
@@ -68,6 +69,8 @@ def send_message(Kafka_producer, topic, messages):
             # print(message)
             # print("==================================")
             Kafka_producer.send(topic, value=message)
+            # sleep time to prevent duplicated messages
+            time.sleep(0.05)
         # Wait for all messages in the Producer queue to be delivered
         Kafka_producer.flush()
         logging.info(f"Massesge Sent to topic '{topic}'.")
@@ -88,12 +91,9 @@ def streaming(Kafka_producer):
     for topic in list_topics:
         try:
             list_of_rows = generate_data(data_path, topic) 
-            if len(list_of_rows) >= batch_size:
-                send_message(Kafka_producer, topic, list_of_rows)
-                list_of_rows=[]
-            if list_of_rows:
-                # send the remianing messages in the list
-                send_message(Kafka_producer, topic, list_of_rows)
+            batches_list = np.array_split(list_of_rows, batch_size)
+            for batch in batches_list:
+                send_message(Kafka_producer, topic, batch)
 
         except FileNotFoundError:
             logging.error(f"file {data_path}/{topic} not found.")
@@ -102,6 +102,7 @@ def streaming(Kafka_producer):
                 f"Failed to process the file and \
                                 sending messages."
             )
+
 
 
 

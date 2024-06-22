@@ -213,19 +213,19 @@ def query_to_mysql(df, bs, topic, schema):
         expanded_df = df \
                         .selectExpr("CAST(value AS STRING)") \
                         .select(from_json(col("value"),schema).alias(f"{topic}")) \
-                        .select(f"{topic}.*")         
+                        .select(f"{topic}.*")       
 
         # expanded_df.printSchema()
 
-        # Output to Console
-        expanded_df.writeStream \
-          .outputMode("append") \
-          .format("console") \
-          .option("truncate", False) \
-          .start()  
+        # # Output to Console
+        # expanded_df.writeStream \
+        #   .outputMode("append") \
+        #   .format("console") \
+        #   .option("truncate", False) \
+        #   .start()  
 
         query = expanded_df.writeStream \
-        .trigger(processingTime="15 seconds") \
+        .trigger(availableNow=True) \
         .outputMode("update") \
         .foreachBatch(bs.save_to_mysql) \
         .start()
@@ -251,19 +251,30 @@ def query_to_postgres(df, bs, topic, schema):
         expanded_df = df \
                         .selectExpr("CAST(value AS STRING)") \
                         .select(from_json(col("value"),schema).alias(f"{topic}")) \
-                        .select(f"{topic}.*")         
+                        .select(f"{topic}.*")       
 
         # expanded_df.printSchema()
 
-        # Output to Console
-        expanded_df.writeStream \
-          .outputMode("append") \
-          .format("console") \
-          .option("truncate", False) \
-          .start()  
+        # # Output to Console
+        # expanded_df.writeStream \
+        #   .outputMode("append") \
+        #   .format("console") \
+        #   .option("truncate", False) \
+        #   .start()  
 
-        query = expanded_df.writeStream \
-                    .trigger(processingTime="15 seconds") \
+        # query = expanded_df \
+        #             .withWatermark("event_time", "5 seconds")\
+        #             .dropDuplicates()\
+        #             .groupBy("last_update").count() \
+        #             .writeStream \
+        #             .trigger(availableNow=True) \
+        #             .outputMode("update") \
+        #             .foreachBatch(bs.save_to_postgres) \
+        #             .start()
+
+        query = expanded_df \
+                    .writeStream \
+                    .trigger(availableNow=True) \
                     .outputMode("update") \
                     .foreachBatch(bs.save_to_postgres) \
                     .start()

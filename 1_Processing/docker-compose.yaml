@@ -250,11 +250,9 @@ services:
     container_name: producer  
     restart: always
     depends_on:
-      broker-1:
-        condition: service_started
-      broker-2:
-        condition: service_started
-      broker-3:
+      cassandra-create-ks-topic:
+        condition: service_completed_successfully
+      postgres:
         condition: service_started
     command: ["sh", "/src/run.sh", "$ACTION"]  
     volumes:
@@ -361,17 +359,11 @@ services:
     networks:
       - pipeline_network
     depends_on:
-      broker-1:
-        condition: service_started
-      broker-2:
-        condition: service_started
-      broker-3:
-        condition: service_started
-      producer:
-        condition: service_started
       cassandra-create-ks-topic:
         condition: service_completed_successfully
-      mysql:
+      postgres:
+        condition: service_started
+      spark:
         condition: service_started
     logging:
       driver: "json-file"

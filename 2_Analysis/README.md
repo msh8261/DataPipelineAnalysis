@@ -52,3 +52,9 @@
 -	category_film_exclusions
 3.	Finally perform an anti join from the relevant category films on the exclusions and use window functions to keep the top 3 from each category by popularity - be sure to split out the recommendations by category ranking
 -	category_recommendations
+
+## Create Recommendataion Table
+![](images/table1.png)
+
+## Result
+![](images/table2.png)
